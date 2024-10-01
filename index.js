@@ -24,7 +24,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const productCollection = client.db("GLOW_MART_DB").collection("products");
     const cartCollection = client.db("GLOW_MART_DB").collection("carts");
@@ -44,19 +44,17 @@ async function run() {
     // Middlewares
 
     const verifyToken = (req, res, next) => {
-      // console.log("Inside the verify token", req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: "Unauthorized" });
       }
+
       const token = req.headers.authorization.split(" ")[1];
-      // console.log(token);
+
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
-          return res.status(401).send({ message: "Unauthorized Access" });
+          return res.status.send({ message: "Unauthorized" });
         }
-        // console.log("Decoded value", decoded);
         req.decoded = decoded;
-
         next();
       });
     };
@@ -173,6 +171,30 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/products/:id", async (req, res) => {
+      const product = req.body;
+      const id = req.params.id;
+      console.log(product);
+      // res.send({ message: "Update Product soon!" });
+      const filter = { _id: new ObjectId(id) };
+
+      const updatedDoc = {
+        $set: {
+          name: product.name,
+          solidPrice: product.solidPrice,
+          retailPrice: product.retailPrice,
+          profit: product.profit,
+          category: product.category,
+          subCategory: product.subCategory,
+          description: product.description,
+          image: product.image,
+        },
+      };
+
+      const result = await productCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+
     app.delete("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -180,10 +202,10 @@ async function run() {
       res.send(result);
     });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
