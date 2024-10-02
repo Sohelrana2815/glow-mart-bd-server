@@ -1,12 +1,17 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const jwt = require("jsonwebtoken");
 const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+  })
+);
 app.use(express.json());
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -29,7 +34,7 @@ async function run() {
     const productCollection = client.db("GLOW_MART_DB").collection("products");
     const cartCollection = client.db("GLOW_MART_DB").collection("carts");
     const userCollection = client.db("GLOW_MART_DB").collection("users");
-
+    const paymentCollection = client.db("GLOW_MART_DB").collection("payments");
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -200,6 +205,34 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await productCollection.deleteOne(query);
       res.send(result);
+    });
+
+    // Payment intent
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      // console.log(amount, "inside");
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // payment history
+
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+
+      const paymentResult = await paymentCollection.insertOne(payment);
+
+      // Carefully delete all item
+      console.log("payment info", payment);
+      res.send(paymentResult);
     });
 
     // // await client.db("admin").command({ ping: 1 });
