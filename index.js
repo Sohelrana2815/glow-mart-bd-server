@@ -1,11 +1,18 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const jwt = require("jsonwebtoken");
-const app = express();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const formData = require("form-data");
+const Mailgun = require("mailgun.js");
+const mailgun = new Mailgun(formData);
 const port = process.env.PORT || 5000;
 
+const mg = mailgun.client({
+  username: "api",
+  key: process.env.MAIL_GUN_API_KEY,
+});
+const app = express();
 // Middleware
 app.use(
   cors({
@@ -50,14 +57,13 @@ async function run() {
 
     const verifyToken = (req, res, next) => {
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: "Unauthorized" });
+        console.log("token", req.headers);
+        return res.status(401).send({ message: "Unauthorized Access" });
       }
-
       const token = req.headers.authorization.split(" ")[1];
-
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
-          return res.status.send({ message: "Unauthorized" });
+          return res.status(401).send({ message: "Unauthorized" });
         }
         req.decoded = decoded;
         next();
@@ -225,6 +231,15 @@ async function run() {
 
     // payment history
 
+    app.get("/payments/:email", verifyToken, async (req, res) => {
+      const query = { email: req.params.email };
+      if (req.params.email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.post("/payments", async (req, res) => {
       const payment = req.body;
 
@@ -232,7 +247,105 @@ async function run() {
 
       // Carefully delete all item
       console.log("payment info", payment);
-      res.send(paymentResult);
+      const query = {
+        _id: {
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
+        },
+      };
+
+      const deleteResult = await cartCollection.deleteMany(query);
+      // send email to the user for payment confirmation
+
+      mg.messages
+        .create(process.env.MAIL_SENDING_DOMAIN, {
+          from: "Excited User <mailgun@sandbox8f2392c1907b45d78442a2ec0742e100.mailgun.org>",
+          to: ["sohel152302@gmail.com"],
+          subject: "GLOW MART BD ORDER CONFIRMATION",
+          text: "THANK YOU FOR YOUR ORDER!",
+          html: `
+        <div>
+                <h2> Thank you for your order  </h2>
+                <h4>Your Transaction Id : <b>${payment.transactionId}</b></h4>
+                <p>We would like to get feedback about your product</p>
+        </div>
+        `,
+        })
+        .then((msg) => console.log(msg)) // logs response data
+        .catch((err) => console.log(err)); // logs any error
+      res.send({ paymentResult, deleteResult });
+    });
+
+    app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount();
+      const products = await productCollection.estimatedDocumentCount();
+      const orders = await paymentCollection.estimatedDocumentCount();
+      // const payments = await paymentCollection.find().toArray();
+
+      // const revenue = payments.reduce((acc, curr) => acc + curr.price, 0);
+
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: "$price" },
+            },
+          },
+        ])
+        .toArray();
+
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+
+      res.send({
+        users,
+        products,
+        orders,
+        revenue,
+      });
+    });
+
+    // order stats (using aggregate pipeline)
+
+    app.get("/order-stats", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $unwind: "$productIds",
+          },
+          {
+            $set: {
+              productIds: { $toObjectId: "$productIds" },
+            },
+          },
+          {
+            $lookup: {
+              from: "products",
+              localField: "productIds",
+              foreignField: "_id",
+              as: "productDetails",
+            },
+          },
+          {
+            $unwind: "$productDetails",
+          },
+          {
+            $group: {
+              _id: "$productDetails.category",
+              quantity: { $sum: 1 },
+              revenue: { $sum: "$productDetails.retailPrice" },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              category: "$_id",
+              quantity: "$quantity",
+              revenue: "$revenue",
+            },
+          },
+        ])
+        .toArray();
+      res.send(result);
     });
 
     // // await client.db("admin").command({ ping: 1 });
