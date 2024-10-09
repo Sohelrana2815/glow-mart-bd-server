@@ -163,11 +163,33 @@ async function run() {
       res.send(result);
     });
 
+    // Products related api
+
+    // app.get("/products", async (req, res) => {
+    //   const page = parseInt(req.query.page) || 1; // Current page
+    //   const limit = parseInt(req.query.limit) || 9; // number of products per page
+    //   const skip = (page - 1) * limit; // how many to skip after changing the page number
+    //   const totalProducts = await productCollection.estimatedDocumentCount();
+    //   const products = await productCollection
+    //     .find()
+    //     .skip(skip)
+    //     .limit(limit)
+    //     .toArray(); // Paginated fetch
+
+    //   // send response with JSON
+
+    //   res.json({
+    //     products,
+    //     totalProducts,
+    //     currentPage: page,
+    //     totalPages: Math.ceil(totalProducts / limit), // Total pages
+    //   });
+    // });
+
     app.get("/products", async (req, res) => {
       const result = await productCollection.find().toArray();
       res.send(result);
     });
-
     app.get("/products/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
