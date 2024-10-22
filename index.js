@@ -173,12 +173,6 @@ async function run() {
       const result = await productCollection.find().toArray();
       res.send(result);
     });
-
-    app.get("/productsCount", async (req, res) => {
-      const totalProducts = await productCollection.estimatedDocumentCount();
-      res.send({ totalProducts });
-    });
-
     // app.get('/products/subcategory/:subCategory',async(req,res)=>{
     //   const subCategory = req.params.subCategory;
     //   console.log(subCategory);
