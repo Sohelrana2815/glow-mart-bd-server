@@ -14,6 +14,8 @@ const mg = mailgun.client({
 });
 const app = express();
 // Middleware
+app.use(express.json());
+
 app.use(
   cors({
     origin: [
@@ -23,7 +25,6 @@ app.use(
     ],
   })
 );
-app.use(express.json());
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5q2fm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -171,6 +172,11 @@ async function run() {
     app.get("/products", async (req, res) => {
       const result = await productCollection.find().toArray();
       res.send(result);
+    });
+
+    app.get("/productsCount", async (req, res) => {
+      const totalProducts = await productCollection.estimatedDocumentCount();
+      res.send({ totalProducts });
     });
 
     // app.get('/products/subcategory/:subCategory',async(req,res)=>{
