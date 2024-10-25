@@ -170,15 +170,29 @@ async function run() {
 
     // products
     app.get("/products", async (req, res) => {
-      const result = await productCollection.find().toArray();
+      const currentPage = parseInt(req.query.currentPage);
+      const productsPerPage = parseInt(req.query.productsPerPage);
+      console.log("pagination query ", currentPage, productsPerPage);
+
+      const category = req.query.category;
+      console.log(category);
+      const filter = category ? { category } : {};
+      const result = await productCollection
+        .find(filter)
+        .skip(currentPage * productsPerPage)
+        .limit(productsPerPage)
+        .toArray();
       res.send(result);
     });
-    // app.get('/products/subcategory/:subCategory',async(req,res)=>{
-    //   const subCategory = req.params.subCategory;
-    //   console.log(subCategory);
 
-    // })
-    app.get("/products/:id", async (req, res) => {
+    // Products count
+
+    app.get("/totalProducts", async (req, res) => {
+      const totalProducts = await productCollection.estimatedDocumentCount();
+      res.send({ totalProducts });
+    });
+
+    app.get("/getSpecificProduct/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const result = await productCollection.findOne(filter);
@@ -192,7 +206,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/products/:id", async (req, res) => {
+    app.patch("/updateSpecificProducts/:id", async (req, res) => {
       const product = req.body;
       const id = req.params.id;
       console.log(product);
