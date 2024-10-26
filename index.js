@@ -3,15 +3,8 @@ const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const formData = require("form-data");
-const Mailgun = require("mailgun.js");
-const mailgun = new Mailgun(formData);
 const port = process.env.PORT || 5000;
 
-const mg = mailgun.client({
-  username: "api",
-  key: process.env.MAIL_GUN_API_KEY,
-});
 const app = express();
 // Middleware
 app.use(express.json());
@@ -216,11 +209,8 @@ async function run() {
       const updatedDoc = {
         $set: {
           name: product.name,
-          solidPrice: product.solidPrice,
-          retailPrice: product.retailPrice,
-          profit: product.profit,
+          price: product.price,
           category: product.category,
-          subCategory: product.subCategory,
           description: product.description,
           image: product.image,
         },
@@ -276,20 +266,6 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/payments/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const payment = req.body;
-      console.log(payment, id);
-      const updatedDoc = {
-        $set: {
-          status: payment.status,
-        },
-      };
-      const result = await paymentCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
-
     app.post("/payments", async (req, res) => {
       const payment = req.body;
 
@@ -304,25 +280,22 @@ async function run() {
       };
 
       const deleteResult = await cartCollection.deleteMany(query);
-      // send email to the user for payment confirmation
 
-      mg.messages
-        .create(process.env.MAIL_SENDING_DOMAIN, {
-          from: "Excited User <mailgun@sandbox8f2392c1907b45d78442a2ec0742e100.mailgun.org>",
-          to: ["sohel152302@gmail.com"],
-          subject: "GLOW MART BD ORDER CONFIRMATION",
-          text: "THANK YOU FOR YOUR ORDER!",
-          html: `
-        <div>
-                <h2> Thank you for your order  </h2>
-                <h4>Your Transaction Id : <b>${payment.transactionId}</b></h4>
-                <p>We would like to get feedback about your product</p>
-        </div>
-        `,
-        })
-        .then((msg) => console.log(msg)) // logs response data
-        .catch((err) => console.log(err)); // logs any error
       res.send({ paymentResult, deleteResult });
+    });
+
+    app.patch("/payments/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const payment = req.body;
+      console.log(payment, id);
+      const updatedDoc = {
+        $set: {
+          status: payment.status,
+        },
+      };
+      const result = await paymentCollection.updateOne(filter, updatedDoc);
+      res.send(result);
     });
 
     // order stats (using aggregate pipeline)
