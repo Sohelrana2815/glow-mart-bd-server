@@ -37,9 +37,13 @@ async function run() {
     // await client.connect();
 
     const productCollection = client.db("GLOW_MART_DB").collection("products");
+    const productsCategoryCollection = client
+      .db("GLOW_MART_DB")
+      .collection("productsCategory");
     const cartCollection = client.db("GLOW_MART_DB").collection("carts");
     const userCollection = client.db("GLOW_MART_DB").collection("users");
     const paymentCollection = client.db("GLOW_MART_DB").collection("payments");
+    
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -140,6 +144,7 @@ async function run() {
       res.send(result);
     });
 
+    // Carts related api
     app.get("/carts", async (req, res) => {
       const email = req.query.email;
       // console.log(email);
@@ -161,7 +166,7 @@ async function run() {
       res.send(result);
     });
 
-    // products
+    // products related api
     app.get("/products", async (req, res) => {
       const currentPage = parseInt(req.query.currentPage);
       const productsPerPage = parseInt(req.query.productsPerPage);
@@ -176,6 +181,15 @@ async function run() {
         .limit(productsPerPage)
         .toArray();
       res.send(result);
+    });
+
+    app.get("/productsCategory", async (req, res) => {
+      try {
+        const result = await productsCategoryCollection.find({}).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
     });
 
     // Products count
