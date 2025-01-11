@@ -13,6 +13,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
+      "http://localhost:5174",
       "https://glow-mart-bd.web.app",
       "https://glow-mart-bd.firebaseapp.com",
     ],
@@ -43,7 +44,7 @@ async function run() {
     const cartCollection = client.db("GLOW_MART_DB").collection("carts");
     const userCollection = client.db("GLOW_MART_DB").collection("users");
     const paymentCollection = client.db("GLOW_MART_DB").collection("payments");
-    
+
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -170,11 +171,13 @@ async function run() {
     app.get("/products", async (req, res) => {
       const currentPage = parseInt(req.query.currentPage);
       const productsPerPage = parseInt(req.query.productsPerPage);
-      console.log("pagination query ", currentPage, productsPerPage);
 
       const category = req.query.category;
-      console.log(category);
-      const filter = category ? { category } : {};
+      const search = req.query.search;
+      const filter = {};
+      if (category) filter.category = category;
+      if (search) filter.name = { $regex: search, $options: "i" }; // Case insensitive search
+
       const result = await productCollection
         .find(filter)
         .skip(currentPage * productsPerPage)
@@ -182,6 +185,8 @@ async function run() {
         .toArray();
       res.send(result);
     });
+
+    //
 
     app.get("/productsCategory", async (req, res) => {
       try {
